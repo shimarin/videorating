@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <title>動画整理くん</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"/>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css"/>
+    </head>
+    <body>
+        <div id="page-content" class="container">
+            <div class="btn-group" role="group" aria-label="radio toggle button group">
+                <input type="radio" class="btn-check" name="btnradio" id="filter_all" autocomplete="off" v-model="filter" v-bind:value="null" v-on:change="get()">
+                <label class="btn btn-outline-primary" for="filter_all">全て</label>
+
+                <input type="radio" class="btn-check" name="btnradio" id="filter_like" autocomplete="off" v-model="filter" v-bind:value="1" v-on:change="get()">
+                <label class="btn btn-outline-primary" for="filter_like">高評価</label>
+
+                <input type="radio" class="btn-check" name="btnradio" id="filter_unrated" autocomplete="off" v-model="filter" v-bind:value="0" v-on:change="get()">
+                <label class="btn btn-outline-primary" for="filter_unrated">未評価</label>
+            </div>
+            <div>
+                <button class="btn btn-primary" v-bind:disabled="page &lt; 2" v-on:click="previous()">&laquo;</button>
+                {{page}} ページ目
+                <button class="btn btn-primary" v-on:click="next()">&raquo;</button>
+            </div>
+            <ul class="list-group">
+                <li class="list-group-item" v-for="file in files">
+                    <a href="" v-on:click.prevent="play(file.filename)"><img alt="thumbnail" v-bind:src="'thumbnail/' + file.hash + '.jpg'"/></a>{{file.filename}}
+                    <div class="btn-group" role="group" aria-label="button group">
+                        <button type="button" class="btn" v-bind:class="{'btn-primary':file.rating == -1,'btn-outline-primary':file.rating != -1}" 
+                            v-bind:disabled="file.processing" v-on:click="rate(file, -1)"><i class="bi bi-hand-thumbs-down"></i></button>
+                        <button type="button" class="btn" v-bind:class="{'btn-primary':file.rating == 0,'btn-outline-primary':file.rating != 0}"
+                            v-bind:disabled="file.processing" v-on:click="rate(file, 0)">-</button>
+                        <button type="button" class="btn" v-bind:class="{'btn-primary':file.rating == 1,'btn-outline-primary':file.rating != 1}"
+                            v-bind:disabled="file.processing" v-on:click="rate(file, 1)"><i class="bi bi-heart"></i></button>
+                    </div>
+                </li>
+            </ul>
+            <div>
+                <button class="btn btn-primary" v-bind:disabled="page &lt; 2" v-on:click="previous()">&laquo;</button>
+                {{page}} ページ目
+                <button class="btn btn-primary" v-on:click="next()">&raquo;</button>
+            </div>
+
+            <div v-if="video" style="position: fixed;top: 0;left: 0;width:100%;max-width: 100vw;">
+                <button class="btn btn-primary" v-on:click="stop()">×</button>
+                <video controls style="width:100%">
+                    <source v-bind:src="video"/>
+                </video>
+            </div>
+        </div>
+        <script type="module">
+            import { createApp } from "https://cdnjs.cloudflare.com/ajax/libs/vue/3.2.31/vue.esm-browser.min.js";
+            createApp({
+                data() { return {
+                    files: null,
+                    video: null,
+                    filter: null,
+                    page: 1
+                }},
+                mounted() {
+                    this.get();
+                },
+                computed: {
+                },
+                methods: {
+                    get() {
+                        const params = {};
+                        if (this.filter != null) {
+                            params.rating = this.filter;
+                        }
+                        if (this.page > 1) {
+                            params.offset = 100 * (this.page - 1);
+                        }
+                        const query_params = new URLSearchParams(params);
+                        fetch("./api/?" + query_params).then((response) => {
+                            return response.json();
+                        }).then((data) => {
+                            this.files = data;
+                        });
+                    },
+                    rate(file, rating) {
+                        if (file.rating == rating) return;
+                        //else
+                        fetch("./api/" + file.hash + "/rate", {method:"POST", headers:{"content-type":"application/json"},body:JSON.stringify({rating:rating})}).then((response) => {
+                            return response.json();
+                        }).then((data) => {
+                            file.rating = data.rating;
+                            file.processing = false;
+                        });
+                        file.processing = true;
+                    },
+                    play(filename) {
+                        this.video = filename;
+                    },
+                    stop() {
+                        this.video = null;
+                    },
+                    previous() {
+                        if (this.page > 1) {
+                            this.page -= 1;
+                            this.get();
+                        }
+                    },
+                    next() {
+                        this.page += 1;
+                        this.get();
+                    }
+                }
+            }).mount("#page-content");
+        </script>
+    </body>
+</html>
